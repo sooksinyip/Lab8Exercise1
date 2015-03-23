@@ -66,11 +66,19 @@ public class MessageActivity extends ActionBarActivity implements Runnable {
         user = i.getStringExtra("user");
 
         handler = new Handler();
-        handler.postDelayed(this, 30000);
+        handler.postDelayed(this, 10000);
     }
 
     @Override
     public void run() {
+        Toast t = Toast.makeText(this.getApplicationContext(),
+                "Called by handler", Toast.LENGTH_SHORT);
+        t.show();
+        LoadMessageTask task = new LoadMessageTask();
+        task.execute();
+        handler.postDelayed(this, 10000);
+
+
     }
 
     @Override
@@ -105,7 +113,11 @@ public class MessageActivity extends ActionBarActivity implements Runnable {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_refresh) {
+            handler.removeCallbacks(this);
+            LoadMessageTask task = new LoadMessageTask();
+            task.execute();
 
+            handler.postDelayed(this, 10000);
             return true;
         }
 
@@ -118,7 +130,9 @@ public class MessageActivity extends ActionBarActivity implements Runnable {
         protected Boolean doInBackground(String... params) {
             BufferedReader reader;
             StringBuilder buffer = new StringBuilder();
-            String line;
+            String line, message = "";
+            String name = "";
+            double time= 0;
 
             try {
                 Log.e("LoadMessageTask", ""+ timestamp);
@@ -141,12 +155,30 @@ public class MessageActivity extends ActionBarActivity implements Runnable {
 
                     //To append a new message:
                     //Map<String, String> item = new HashMap<String, String>();
-                    //item.put("user", u);
-                    //item.put("message", m);
+                    //item.put("user", user);
+                    //item.put("message", message);
                     //data.add(0, item);
+
                     JSONObject json = new JSONObject(buffer.toString());
+                    JSONArray msg = json.getJSONArray("msg");
+                    timestamp = json.getInt("timestamp");
+                    for (int i=0; i <msg.length(); i++) {
+                        name = msg.getJSONObject(i).getString("user");
+                        message = msg.getJSONObject(i).getString("message");
+
+
+
+                        Map<String, String> item = new HashMap<String, String>();
+                        item.put("user", name);
+                        item.put("message", message);
+                        data.add(0, item);
+                    }
+
+
 
                 }
+
+                return  true;
             } catch (MalformedURLException e) {
                 Log.e("LoadMessageTask", "Invalid URL");
             } catch (IOException e) {
@@ -181,9 +213,27 @@ public class MessageActivity extends ActionBarActivity implements Runnable {
             HttpClient h = new DefaultHttpClient();
             HttpPost p = new HttpPost("http://ict.siit.tu.ac.th/~cholwich/microblog/post.php");
 
+            List<NameValuePair> values = new ArrayList<NameValuePair>();
+            values.add(new BasicNameValuePair("user", user));
+            values.add(new BasicNameValuePair("message", message));
+            try {
+                p.setEntity(new UrlEncodedFormEntity(values));
+                HttpResponse response = h.execute(p);
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(response.getEntity().getContent()));
+                while((line = reader.readLine()) != null) {
+                    buffer.append(line);
+                }
+            } catch (UnsupportedEncodingException e) {
+                Log.e("Error", "Invalid encoding");
+            } catch (ClientProtocolException e) {
+                Log.e("Error", "Error in posting a message");
+            } catch (IOException e) {
+                Log.e("Error", "I/O Exception");
+            }
 
 
-            return false;
+            return true;
         }
 
         @Override
